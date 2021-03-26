@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"path/filepath"
 )
 
 type inputFile struct {
@@ -51,4 +52,18 @@ func getFileData() (inputFile, error) {
 	}
 
 	return inputFile{fileLocation, *separator, *pretty}, nil
+}
+
+func checkIfValidFile(filename string) (bool, error) {
+	// Check if entered file is CSV
+	if fileExtension := filepath.Ext(filename); fileExtension != ".csv" {
+		return false, fmt.Errorf("file %s is not a CSV", filename)
+	}
+
+	// check if filepath entered belongs to an existing file
+	if _, err := os.Stat(filename); err != nil && os.IsNotExist(err) {
+		return false, fmt.Errorf("file %s does not exist", filename)
+	}
+
+	return true, nil
 }
