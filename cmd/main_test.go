@@ -82,3 +82,51 @@ func Test_checkIfValidFile(t *testing.T) {
 		})
 	}
 }
+
+func Test_processCsvFile(t *testing.T) {
+	type args struct {
+		fileData      inputFile
+		writerChannel chan<- map[string]string
+	}
+	wantMapSlice := []map[string]string{
+		{"COL1": "1", "COL2": "2", "COL3": "3"},
+		{"COL1": "4", "COL2": "5", "COL3": "6"},
+	}
+
+	tests := []struct {
+		name      string // The name of the test
+		csvString string // The content of our tested CSV file
+		separator string // The separator used for each test case
+	}{
+		{"Comma separator", "COL1,COL2,COL3\n1,2,3\n4,5,6\n", "comma"},
+		{"Semicolon separator", "COL1;COL2;COL3\n1;2;3\n4;5;6\n", "semicolon"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Creating a CSV temp file for testing
+			tmpfile, err := ioutil.TempFile("", "test*.csv")
+			check(err)
+
+			defer os.Remove(tmpfile.Name())            // Removing the CSV test file before living
+			_, err = tmpfile.WriteString(tt.csvString) // Writing the content of the CSV test file
+			tmpfile.Sync()                             // Persisting data on disk
+			// Defining the inputFile struct that we're going to use as one parameter of our function
+			testFileData := inputFile{
+				filepath:  tmpfile.Name(),
+				pretty:    false,
+				separator: tt.separator,
+			}
+			// Defining the writerChanel
+			writerChannel := make(chan map[string]string)
+			// Calling the targeted function as a go routine
+			go processCsvFile(testFileData, writerChannel)
+			// Iterating over the slice containing the expected map values
+			for _, wantMap := range wantMapSlice {
+				record := <-writerChannel                // Waiting for the record that we want to compare
+				if !reflect.DeepEqual(record, wantMap) { // Making the corresponding test assertion
+					t.Errorf("processCsvFile() = %v, want %v", record, wantMap)
+				}
+			}
+		})
+	}
+}
